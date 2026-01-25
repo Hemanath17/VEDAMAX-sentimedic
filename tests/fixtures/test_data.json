@@ -1,0 +1,22 @@
+{
+  "sample_queries": [
+    "What are the side effects of ibuprofen?",
+    "How should I take my blood pressure medication?",
+    "What does an elevated white blood cell count mean?"
+  ],
+  "sample_ground_truth": [
+    "Ibuprofen may cause stomach upset, nausea, and dizziness. Serious side effects include stomach bleeding and kidney problems.",
+    "Take blood pressure medication as prescribed, usually once daily with water. Avoid missing doses.",
+    "An elevated white blood cell count may indicate infection, inflammation, or other medical conditions requiring further evaluation."
+  ],
+  "sample_documents": [
+    {
+      "text": "Ibuprofen is a nonsteroidal anti-inflammatory drug (NSAID) used to treat pain and inflammation. Common side effects include stomach upset and dizziness.",
+      "metadata": {
+        "source": "medical_textbook",
+        "page": 123
+      }
+    }
+  ]
+}
+

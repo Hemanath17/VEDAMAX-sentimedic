@@ -1,0 +1,59 @@
+version: '3.8'
+
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: sentimedical-api
+    ports:
+      - "8000:8000"
+    environment:
+      - QDRANT_HOST=qdrant
+      - QDRANT_PORT=6333
+      - PHOENIX_HOST=phoenix
+      - PHOENIX_PORT=6006
+    volumes:
+      - ./data:/app/data
+      - ./models:/app/models
+      - ./logs:/app/logs
+    depends_on:
+      - qdrant
+      - phoenix
+    restart: unless-stopped
+    networks:
+      - sentimedical-network
+
+  qdrant:
+    image: qdrant/qdrant:latest
+    container_name: sentimedical-qdrant
+    ports:
+      - "6333:6333"
+      - "6334:6334"
+    volumes:
+      - qdrant_storage:/qdrant/storage
+    restart: unless-stopped
+    networks:
+      - sentimedical-network
+
+  phoenix:
+    image: arizephoenix/phoenix:latest
+    container_name: sentimedical-phoenix
+    ports:
+      - "6006:6006"
+    environment:
+      - PHOENIX_WORKING_DIR=/app/phoenix
+    volumes:
+      - phoenix_data:/app/phoenix
+    restart: unless-stopped
+    networks:
+      - sentimedical-network
+
+volumes:
+  qdrant_storage:
+  phoenix_data:
+
+networks:
+  sentimedical-network:
+    driver: bridge
+

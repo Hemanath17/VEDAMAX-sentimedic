@@ -1,0 +1,13 @@
+# Web Application Dependencies
+streamlit>=1.28.0
+streamlit-chat>=0.1.1
+python-multipart>=0.0.6
+Pillow>=10.0.0
+plotly>=5.17.0
+
+# Styling and UI
+streamlit-option-menu>=0.3.6
+
+# File handling
+aiofiles>=23.2.0
+
