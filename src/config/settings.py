@@ -46,7 +46,7 @@ class Settings(BaseSettings):
     LLM_MAX_TOKENS: int = 2000
 
     # Sentiment
-    SENTIMENT_MODEL: str = "j-hartmann/emotion-english-distilroberta-base"
+    SENTIMENT_MODEL: str = "SamLowe/roberta-base-go_emotions"
     SENTIMENT_DEVICE: str = "cpu"
 
     # NER

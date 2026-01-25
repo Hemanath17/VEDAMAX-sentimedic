@@ -13,7 +13,62 @@ MEDICAL_ENTITY_TYPES = [
     "CONDITION",
 ]
 
-# Emotion Categories
+# Emotion Categories (GoEmotions 28 labels)
+GO_EMOTIONS_LABELS = [
+    "admiration", "amusement", "anger", "annoyance", "approval", "caring",
+    "confusion", "curiosity", "desire", "disappointment", "disapproval",
+    "disgust", "embarrassment", "excitement", "fear", "gratitude", "grief",
+    "joy", "love", "nervousness", "optimism", "pride", "realization",
+    "relief", "remorse", "sadness", "surprise", "neutral"
+]
+
+# VEDAMAX Emotion Buckets (7 clinically interpretable buckets)
+VEDAMAX_EMOTION_BUCKETS = {
+    "NEUTRAL": {
+        "purpose": "Pure info",
+        "emotions": ["neutral", "curiosity"],
+        "empathy_level": 0.3,
+        "risk_level": 0.0,
+    },
+    "LOW_CONCERN": {
+        "purpose": "Mild unease",
+        "emotions": ["nervous", "unsure", "nervousness", "confusion"],
+        "empathy_level": 0.4,
+        "risk_level": 0.2,
+    },
+    "ANTICIPATORY_STRESS": {
+        "purpose": "Waiting anxiety",
+        "emotions": ["worried", "uneasy", "disappointment", "embarrassment"],
+        "empathy_level": 0.6,
+        "risk_level": 0.4,
+    },
+    "HIGH_ANXIETY": {
+        "purpose": "Health fear",
+        "emotions": ["anxiety", "fear", "nervousness"],
+        "empathy_level": 0.8,
+        "risk_level": 0.6,
+    },
+    "SADNESS_GRIEF": {
+        "purpose": "Emotional pain",
+        "emotions": ["sadness", "grief", "disappointment", "remorse"],
+        "empathy_level": 0.9,
+        "risk_level": 0.5,
+    },
+    "FRUSTRATION_ANGER": {
+        "purpose": "System friction",
+        "emotions": ["anger", "irritation", "annoyance", "disapproval"],
+        "empathy_level": 0.7,
+        "risk_level": 0.4,
+    },
+    "HIGH_RISK": {
+        "purpose": "Emergency",
+        "emotions": ["panic", "self-harm", "despair", "extreme_fear"],
+        "empathy_level": 1.0,
+        "risk_level": 0.95,
+    },
+}
+
+# Legacy emotion categories (for backward compatibility)
 EMOTION_CATEGORIES = [
     "joy",
     "sadness",
