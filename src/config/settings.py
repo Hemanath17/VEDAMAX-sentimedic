@@ -96,7 +96,19 @@ class Settings(BaseSettings):
     S3_BUCKET_NAME: Optional[str] = None
 
     # Database
-    DATABASE_URL: str = "sqlite:///./data/sentimedical.db"
+    DATABASE_URL: str = "postgresql://user:password@localhost:5432/vedamax"
+    DATABASE_POOL_SIZE: int = 5
+    DATABASE_MAX_OVERFLOW: int = 10
+    
+    # User Context & Memory
+    CONTEXT_ENABLED: bool = True
+    MEMORY_SESSION_SIZE: int = 10  # Last N messages in session
+    MEMORY_RETENTION_DAYS: int = 30  # Keep last N days
+    EMOTION_TRACKING_ENABLED: bool = True
+    RISK_ESCALATION_ENABLED: bool = True
+    RISK_ESCALATION_THRESHOLD: float = 0.2  # 20% increase
+    RISK_ESCALATION_DURATION: int = 5  # minutes
+    USER_ID_HASH_SALT: str = "vedamax-salt-change-in-production"
 
     # Authentication
     JWT_SECRET_KEY: str = "your-secret-key-change-in-production"

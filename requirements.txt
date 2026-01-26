@@ -56,3 +56,8 @@ structlog>=23.2.0
 # HTTP Client
 httpx>=0.25.0
 
+# Database
+sqlalchemy>=2.0.0
+psycopg2-binary>=2.9.0
+alembic>=1.12.0
+
