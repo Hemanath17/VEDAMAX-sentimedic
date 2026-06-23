@@ -102,6 +102,11 @@ ROUTER_DECISIONS = {
     "SAFETY_INTERCEPTION": "safety_interception",
 }
 
+# Vector store corpus types (dual-collection partitioning)
+CORPUS_KB = "kb"
+CORPUS_USER_DOC = "user_doc"
+VALID_CORPORA = {CORPUS_KB, CORPUS_USER_DOC}
+
 # Chunking Defaults
 DEFAULT_CHUNK_SIZE = 512
 DEFAULT_CHUNK_OVERLAP = 50
@@ -111,6 +116,9 @@ SEMANTIC_CHUNK_THRESHOLD = 0.7
 DEFAULT_TOP_K = 10
 DEFAULT_RERANK_TOP_K = 5
 DEFAULT_SIMILARITY_THRESHOLD = 0.7
+RRF_K = 60
+RERANK_POOL_MAX = 30
+RETRIEVAL_SCORE_FLOOR = 0.3
 
 # File Extensions
 SUPPORTED_FILE_EXTENSIONS = [".pdf", ".docx", ".doc", ".txt"]

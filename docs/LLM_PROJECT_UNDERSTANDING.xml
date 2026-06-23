@@ -1,0 +1,527 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project_understanding>
+  <metadata>
+    <project_name>SentiMedical-RAG</project_name>
+    <product_name>V.E.D.A.M.A.X.</product_name>
+    <repository_url>https://github.com/Hemanath17/VEDAMAX-sentimedic</repository_url>
+    <document_purpose>
+      This file is a plain, LLM-friendly understanding document for the project. It explains what the
+      system is intended to do, how the architecture is organized, what has already been implemented,
+      what is currently in progress, and what phases still remain before the full medical assistant
+      vision is complete.
+    </document_purpose>
+    <audience>
+      Any LLM, coding assistant, reviewer, or collaborator that needs fast orientation about the
+      repository without reverse-engineering the entire codebase first.
+    </audience>
+  </metadata>
+
+  <project_summary>
+    <short_description>
+      SentiMedical-RAG is a medical-assistant-oriented Retrieval-Augmented Generation system that combines
+      document understanding, medical entity extraction, emotion-aware conversation analysis, user context
+      memory, vector search, and future agentic reasoning to support safer and more personalized health
+      information conversations.
+    </short_description>
+    <main_goal>
+      The long-term goal is to build a conversational medical assistant that can answer general health
+      questions from a curated medical knowledge base while also using user-provided documents such as lab
+      reports, X-ray reports, and MRI reports as patient-specific context. The assistant should be clinically
+      grounded, emotionally aware, safety-conscious, and able to personalize responses over time.
+    </main_goal>
+    <why_this_project_exists>
+      Standard chatbots often fail in medical-adjacent scenarios because they do not separate general medical
+      knowledge from patient-specific documents, they do not track user emotional state, and they do not
+      maintain contextual memory across a conversation. This project exists to address those weaknesses by
+      building a multi-stage pipeline that can read documents, understand the user, store conversation
+      context, retrieve relevant evidence, and eventually generate grounded answers with safety controls.
+    </why_this_project_exists>
+  </project_summary>
+
+  <intended_usage>
+    <primary_use_cases>
+      <use_case>
+        A user asks a general medical question such as "What is high blood pressure?" and the system answers
+        using the medical knowledge base.
+      </use_case>
+      <use_case>
+        A user uploads a lab report and asks "Is my glucose high?" and the system combines the uploaded report
+        with general medical knowledge to explain the result in simple terms.
+      </use_case>
+      <use_case>
+        A user has a multi-turn conversation such as discussing blood pressure first and attaching a report
+        later. The system should remember the earlier topic and use it when answering follow-up questions.
+      </use_case>
+      <use_case>
+        A user expresses fear or anxiety while discussing a health issue. The system should adjust tone,
+        empathy, and safety sensitivity accordingly.
+      </use_case>
+    </primary_use_cases>
+    <important_behavior_rules>
+      <rule>
+        The assistant should not answer only from uploaded PDFs. It should combine user documents,
+        conversational memory, and general medical knowledge appropriately.
+      </rule>
+      <rule>
+        Patient-specific facts such as values from a lab report should come from the uploaded document
+        corpus, not from the general knowledge base.
+      </rule>
+      <rule>
+        General explanations such as what a test means, what hypertension is, or what a typical range
+        implies should come from the curated medical knowledge base.
+      </rule>
+      <rule>
+        The final system should be able to support labs, X-ray reports, MRI reports, and later potentially
+        multimodal imaging pipelines.
+      </rule>
+    </important_behavior_rules>
+  </intended_usage>
+
+  <architecture_overview>
+    <high_level_pipeline>
+      <step order="1" name="Ingestion">
+        Parse user documents and medical content, extract text and tables, and convert raw files into chunks.
+      </step>
+      <step order="2" name="Input Analysis">
+        Analyze user chat input for medical entities, emotional state, risk, and response persona.
+      </step>
+      <step order="3" name="Context and Memory">
+        Maintain user profile, session memory, clinical memory, emotion trends, and risk escalation signals.
+      </step>
+      <step order="4" name="Vector Storage">
+        Convert chunks into embeddings and store them in Qdrant for semantic retrieval.
+      </step>
+      <step order="5" name="Retrieval">
+        Retrieve relevant evidence from one or more corpora such as medical knowledge base chunks and
+        user-specific document chunks.
+      </step>
+      <step order="6" name="Generation">
+        Use an LLM to generate a grounded answer from retrieved evidence, user context, and sentiment persona.
+      </step>
+      <step order="7" name="Safety">
+        Apply input/output safety filters and escalation logic for clinical-adjacent interactions.
+      </step>
+      <step order="8" name="Evaluation and Monitoring">
+        Measure retrieval quality, faithfulness, hallucination rate, and latency using observability tooling.
+      </step>
+    </high_level_pipeline>
+    <major_system_idea>
+      The repository is being built in layers. Early phases focus on ingesting documents, analyzing messages,
+      remembering context, and storing vectors. Later phases will make the system retrieve better, generate
+      answers, route between agents, enforce guardrails, and support production-grade monitoring.
+    </major_system_idea>
+  </architecture_overview>
+
+  <tech_stack>
+    <backend>
+      <technology name="FastAPI">
+        Intended API layer and orchestration layer for the assistant. It is already present as the project
+        API entry point, but only minimal routes are currently implemented.
+      </technology>
+      <technology name="Python">
+        Primary implementation language across ingestion, analysis, context, retrieval, and API modules.
+      </technology>
+      <technology name="Docker">
+        Used for containerization and future deployment workflows. Docker-related files already exist.
+      </technology>
+      <technology name="AWS">
+        Planned deployment target according to settings and infrastructure layout, but infra is not yet built.
+      </technology>
+    </backend>
+    <retrieval_and_vector_search>
+      <technology name="Qdrant">
+        Vector database used to store embeddings and perform semantic similarity search over document chunks.
+      </technology>
+      <technology name="BGE-M3">
+        Embedding model used for text-to-vector conversion in the current implementation.
+      </technology>
+      <technology name="rank-bm25">
+        Planned lexical retrieval support for hybrid retrieval in the next phase.
+      </technology>
+      <technology name="Cross-Encoder reranker">
+        Planned reranking stage to improve precision after vector and BM25 retrieval.
+      </technology>
+    </retrieval_and_vector_search>
+    <nlp_and_analysis>
+      <technology name="spaCy and Med7">
+        Used for medical named entity recognition and medical language extraction.
+      </technology>
+      <technology name="Hugging Face Transformers">
+        Used for the sentiment and emotion pipeline, including GoEmotions-based classification.
+      </technology>
+      <technology name="SamLowe/roberta-base-go_emotions">
+        Emotion classifier model used to infer fine-grained user emotions from chat text.
+      </technology>
+    </nlp_and_analysis>
+    <document_processing>
+      <technology name="Docling">
+        Planned and partially referenced for richer document parsing.
+      </technology>
+      <technology name="PyPDF2">
+        Used for PDF parsing.
+      </technology>
+      <technology name="python-docx">
+        Used for DOCX parsing.
+      </technology>
+      <technology name="OCR processing">
+        Included to support scanned or image-based documents.
+      </technology>
+      <technology name="Table extraction">
+        Included for medical tables such as lab result panels.
+      </technology>
+    </document_processing>
+    <llm_and_agentic_stack>
+      <technology name="LangGraph">
+        Planned for agentic routing and supervisor orchestration, but not yet implemented.
+      </technology>
+      <technology name="LangChain">
+        Planned for LLM orchestration and tracing integrations.
+      </technology>
+      <technology name="OpenAI and Anthropic clients">
+        Referenced in settings and planned for generation, but generation layer is not yet built.
+      </technology>
+      <technology name="vLLM">
+        Planned future enhancement to replace or augment plain LLM serving with batched inference.
+      </technology>
+    </llm_and_agentic_stack>
+    <evaluation_and_observability>
+      <technology name="Ragas">
+        Planned for RAG evaluation, especially faithfulness and retrieval-quality metrics.
+      </technology>
+      <technology name="DeepEval">
+        Planned complementary evaluation framework.
+      </technology>
+      <technology name="LangSmith">
+        Planned runtime tracing and prompt/step observability.
+      </technology>
+      <technology name="Arize Phoenix">
+        Planned alternative or complementary observability and tracing option.
+      </technology>
+    </evaluation_and_observability>
+    <data_and_state>
+      <technology name="PostgreSQL">
+        Used for context, memory, user profile, and message storage in Phase 4.
+      </technology>
+      <technology name="JWT">
+        Planned authentication mechanism with configured settings already present.
+      </technology>
+    </data_and_state>
+  </tech_stack>
+
+  <current_repository_state>
+    <summary>
+      The repository has completed the first five foundational phases. Those phases cover setup,
+      ingestion, message analysis, user context/memory, and vector storage. The project is now at the
+      beginning of Phase 6, where true retrieval orchestration will be implemented.
+    </summary>
+    <progress>
+      <total_phases>14</total_phases>
+      <completed_phases>5</completed_phases>
+      <current_phase>6</current_phase>
+      <current_phase_name>Retrieval Orchestration</current_phase_name>
+      <remaining_phase_count>9</remaining_phase_count>
+      <overall_progress_estimate>approximately 36 percent</overall_progress_estimate>
+    </progress>
+  </current_repository_state>
+
+  <achieved_phases>
+    <phase number="1" name="Foundation" status="completed">
+      <goal>
+        Create the shared configuration, logging, utilities, and project structure that every later
+        module depends on.
+      </goal>
+      <what_was_built>
+        <item>Centralized application settings using Pydantic settings.</item>
+        <item>Logging configuration for structured and configurable logs.</item>
+        <item>Constants and reusable utility helpers.</item>
+        <item>Project-level dependency and environment templates.</item>
+      </what_was_built>
+      <why_it_matters>
+        This phase is the skeleton of the project. Without it, each later module would hardcode its own
+        settings, logging, and helper logic, making the codebase inconsistent and difficult to maintain.
+      </why_it_matters>
+    </phase>
+
+    <phase number="2" name="Ingestion" status="completed">
+      <goal>
+        Read medical documents, extract usable content, and transform raw files into chunks that can later
+        be embedded and searched.
+      </goal>
+      <what_was_built>
+        <item>PDF parsing support.</item>
+        <item>DOCX parsing support.</item>
+        <item>Semantic chunking and token chunking.</item>
+        <item>OCR support for scanned/image-based documents.</item>
+        <item>Table extraction support for structured medical data such as lab panels.</item>
+        <item>ETL orchestration for document-processing pipelines.</item>
+        <item>Batch processing support.</item>
+      </what_was_built>
+      <why_it_matters>
+        This is the entry gate for all document knowledge. The assistant cannot use a lab report or medical
+        report until the file has been parsed, chunked, labeled, and prepared for embeddings.
+      </why_it_matters>
+      <important_notes>
+        <note>
+          The ingestion components are implemented, but the top-level CLI script is still a placeholder and
+          has not been fully wired into the end-to-end ingest-to-Qdrant workflow.
+        </note>
+      </important_notes>
+    </phase>
+
+    <phase number="3" name="Analysis" status="completed_with_known_bug">
+      <goal>
+        Understand each user message by extracting medical entities and emotional state in parallel.
+      </goal>
+      <what_was_built>
+        <item>Medical named entity recognition using medical NLP components.</item>
+        <item>Emotion classification using a GoEmotions-based RoBERTa model.</item>
+        <item>Aggregation of fine-grained emotions into clinically useful buckets.</item>
+        <item>Persona mapping for response style adjustment.</item>
+        <item>Parallel orchestration of NER and sentiment analysis.</item>
+        <item>Async and batch analysis entry points.</item>
+      </what_was_built>
+      <why_it_matters>
+        The system is not just answering medical facts. It is also trying to understand how the user feels,
+        so it can respond with the right tone, empathy, and safety sensitivity.
+      </why_it_matters>
+      <known_issue>
+        The input analyzer currently uses time-based processing metrics but is missing an import for the
+        time module, which is a small runtime bug that should be fixed early in the next implementation pass.
+      </known_issue>
+    </phase>
+
+    <phase number="4" name="Context and Memory" status="completed">
+      <goal>
+        Remember who the user is, what they discussed before, what clinical topics recur, and whether
+        their emotional state is escalating over time.
+      </goal>
+      <what_was_built>
+        <item>User profiles and preferences.</item>
+        <item>Session memory for recent messages.</item>
+        <item>Persistent user memory for long-term traits.</item>
+        <item>Clinical memory for recurring health topics.</item>
+        <item>Emotion history tracking over time.</item>
+        <item>Risk escalation detection across a session.</item>
+        <item>Privacy-aware hashing of user identifiers.</item>
+        <item>User data deletion flow.</item>
+      </what_was_built>
+      <why_it_matters>
+        This phase turns the assistant from a single-turn question-answering system into a personalized
+        multi-turn conversational system. It is especially important for scenarios where a user discusses
+        blood pressure first and uploads a lab report later.
+      </why_it_matters>
+    </phase>
+
+    <phase number="5" name="Vector Store and Embeddings" status="completed">
+      <goal>
+        Convert chunks into embeddings and store them in a vector database for semantic similarity search.
+      </goal>
+      <what_was_built>
+        <item>Qdrant client wrapper and health checks.</item>
+        <item>BGE-M3 embedding model integration.</item>
+        <item>Batch embedding pipeline.</item>
+        <item>Embedding cache.</item>
+        <item>Collection management.</item>
+        <item>Main vector store orchestrator for storing and searching chunks.</item>
+      </what_was_built>
+      <why_it_matters>
+        This phase gives the system searchable document memory. Without it, chunks would exist, but they
+        would not be retrievable by meaning.
+      </why_it_matters>
+      <important_notes>
+        <note>
+          Phase 5 provides semantic vector search, but not yet hybrid retrieval, lexical retrieval, or
+          reranking. Those are the focus of the next phase.
+        </note>
+      </important_notes>
+    </phase>
+  </achieved_phases>
+
+  <upcoming_and_remaining_phases>
+    <phase number="6" name="Retrieval Orchestration" status="current_next_target">
+      <goal>
+        Build real retrieval logic on top of the vector store using hybrid retrieval and reranking.
+      </goal>
+      <why_this_is_next>
+        Retrieval is the first major missing intelligence layer after storage. The system can already
+        parse documents and store vectors, but it still lacks the retrieval pipeline that chooses the best
+        chunks from the right corpus at query time.
+      </why_this_is_next>
+      <planned_work>
+        <item>Implement BM25 retrieval.</item>
+        <item>Combine BM25 and vector search using hybrid fusion.</item>
+        <item>Add a reranker to improve precision.</item>
+        <item>Return chunk scores, metadata, and source references.</item>
+        <item>Support filtering by user document, chunk type, modality, and document ID.</item>
+      </planned_work>
+    </phase>
+
+    <phase number="7" name="Generation" status="upcoming">
+      <goal>
+        Build the actual LLM answer-generation layer using retrieved evidence, user context, and sentiment persona.
+      </goal>
+      <planned_work>
+        <item>Create an abstract LLM client layer for OpenAI, Anthropic, and future vLLM backends.</item>
+        <item>Build system prompts and sentiment-aware prompt templates.</item>
+        <item>Inject retrieved evidence into generation.</item>
+        <item>Use context and memory from Phase 4 to personalize answers.</item>
+        <item>Add post-processing such as citations and disclaimers.</item>
+      </planned_work>
+    </phase>
+
+    <phase number="8" name="Agentic Routing" status="upcoming">
+      <goal>
+        Introduce LangGraph-based routing and specialized agents for tasks such as retrieval, calculations,
+        and safety handling.
+      </goal>
+      <planned_work>
+        <item>Create router state and decision nodes.</item>
+        <item>Add specialized agents such as retrieval agent, calculation agent, and safety agent.</item>
+        <item>Let the system choose how to answer based on query type, risk, and content.</item>
+      </planned_work>
+    </phase>
+
+    <phase number="9" name="Safety and Guardrails" status="upcoming">
+      <goal>
+        Add explicit clinical-adjacent safety controls to prevent unsafe advice and respond better in risky scenarios.
+      </goal>
+      <planned_work>
+        <item>Input guardrails.</item>
+        <item>Output guardrails.</item>
+        <item>Risk-aware safety protocols.</item>
+        <item>Possible integration of Llama Guard or NeMo Guardrails.</item>
+      </planned_work>
+    </phase>
+
+    <phase number="10" name="Evaluation" status="upcoming">
+      <goal>
+        Measure whether retrieval and generation are good enough through repeatable benchmarks.
+      </goal>
+      <planned_work>
+        <item>Ragas integration.</item>
+        <item>DeepEval integration.</item>
+        <item>Track faithfulness, relevancy, answer correctness, retrieval precision, and hallucination rate.</item>
+      </planned_work>
+    </phase>
+
+    <phase number="11" name="Monitoring and Tracing" status="upcoming">
+      <goal>
+        Add observability so the system can be debugged and improved in a production-like setting.
+      </goal>
+      <planned_work>
+        <item>LangSmith tracing.</item>
+        <item>Optional Phoenix integration.</item>
+        <item>Latency measurements per query and per pipeline step.</item>
+      </planned_work>
+    </phase>
+
+    <phase number="12" name="Full API" status="upcoming_partial_foundation_exists">
+      <goal>
+        Expose the complete end-to-end assistant over HTTP.
+      </goal>
+      <planned_work>
+        <item>Query route.</item>
+        <item>Ingestion route.</item>
+        <item>Evaluation route.</item>
+        <item>Authentication middleware.</item>
+        <item>Request logging and structured errors.</item>
+      </planned_work>
+    </phase>
+
+    <phase number="13" name="Webapp Integration" status="upcoming_partial_ui_exists">
+      <goal>
+        Connect the Streamlit interface to the real backend so the UI stops using placeholder answers.
+      </goal>
+      <planned_work>
+        <item>Replace preview response generation with API-backed responses.</item>
+        <item>Support file upload, ingest, retrieval, and grounded answering from the UI.</item>
+        <item>Display citations and source context.</item>
+      </planned_work>
+    </phase>
+
+    <phase number="14" name="DevOps and Production Hardening" status="upcoming">
+      <goal>
+        Make the system deployable, scalable, testable, and observable in a production setting.
+      </goal>
+      <planned_work>
+        <item>Re-enable CI.</item>
+        <item>Expand automated tests.</item>
+        <item>Add infrastructure manifests and deployment guides.</item>
+        <item>Introduce vLLM for batched inference.</item>
+        <item>Evaluate quantization choices for performance and cost.</item>
+      </planned_work>
+    </phase>
+  </upcoming_and_remaining_phases>
+
+  <implementation_interpretation_for_llms>
+    <what_is_already_real>
+      <item>The ingestion layer is real.</item>
+      <item>The analysis layer is real.</item>
+      <item>The context and memory layer is real.</item>
+      <item>The vector store layer is real.</item>
+      <item>There are manual phase test scripts for Phase 4 and Phase 5.</item>
+    </what_is_already_real>
+    <what_is_not_yet_real>
+      <item>There is no complete retrieval orchestration pipeline yet.</item>
+      <item>There is no actual answer-generation pipeline yet.</item>
+      <item>There is no agentic supervisor implementation yet.</item>
+      <item>There are no fully built safety modules yet.</item>
+      <item>There is no full evaluation stack yet.</item>
+      <item>The webapp currently behaves as a preview shell and is not deeply connected to the real backend.</item>
+      <item>The API is only minimally implemented.</item>
+    </what_is_not_yet_real>
+    <most_important_next_step>
+      The most important next step is to implement Phase 6 retrieval orchestration, because retrieval is
+      the bridge between stored knowledge and useful generation.
+    </most_important_next_step>
+  </implementation_interpretation_for_llms>
+
+  <recommended_system_design_notes>
+    <note>
+      The final assistant should use multiple corpora: at least a general medical knowledge base and a
+      user-document corpus. It should not answer all questions only from uploaded PDFs.
+    </note>
+    <note>
+      Patient-specific facts should come from user documents, while general medical explanations should
+      come from the knowledge base.
+    </note>
+    <note>
+      Conversation memory should help with context and personalization, but it should not replace
+      document-grounded evidence.
+    </note>
+    <note>
+      Different document types likely need different chunking strategies: table-aware chunking for lab
+      reports, section-aware or hierarchical chunking for X-ray and MRI reports, semantic chunking for
+      narrative text, and token chunking as fallback.
+    </note>
+    <note>
+      Future enhancements discussed for this project include vLLM-based inference, quantization, LangSmith
+      tracing, Ragas evaluation, and clinical safety guardrails.
+    </note>
+  </recommended_system_design_notes>
+
+  <known_gaps_and_cautions>
+    <gap>
+      Some scripts are placeholders and not fully wired to the implemented classes.
+    </gap>
+    <gap>
+      CI is currently disabled.
+    </gap>
+    <gap>
+      Several planned directories such as evaluation, monitoring, safety, and agentic routing are mostly
+      scaffolding and not full implementations yet.
+    </gap>
+    <gap>
+      Some default secrets and salts in settings are development placeholders and should be rotated in
+      real deployments.
+    </gap>
+  </known_gaps_and_cautions>
+
+  <final_summary>
+    SentiMedical-RAG is an in-progress medical assistant platform with strong early foundations. The
+    project already knows how to ingest documents, analyze the user's message, remember user context,
+    and store semantic vectors. It does not yet fully retrieve, generate, route, evaluate, guard, or
+    deploy at production quality. The repository is currently best understood as a well-structured
+    Phase-5-complete foundation moving into the critical retrieval and generation stages.
+  </final_summary>
+</project_understanding>

@@ -47,6 +47,10 @@ class ChunkMetadata:
     contains_lab_results: bool = False
     contains_medications: bool = False
 
+    # Vector store partitioning
+    corpus: Optional[str] = None  # "kb" or "user_doc"
+    user_id: Optional[str] = None
+
     # Additional metadata
     custom_metadata: Optional[Dict[str, Any]] = None
 

@@ -30,7 +30,10 @@ class Settings(BaseSettings):
     QDRANT_HOST: str = "localhost"
     QDRANT_PORT: int = 6333
     QDRANT_API_KEY: Optional[str] = None
+    # Legacy single-collection name (deprecated; use KB/USER collections below)
     QDRANT_COLLECTION_NAME: str = "medical_documents"
+    QDRANT_KB_COLLECTION_NAME: str = "medical_knowledge_base"
+    QDRANT_USER_COLLECTION_NAME: str = "user_documents"
     QDRANT_VECTOR_SIZE: int = 1024
 
     # Embeddings
@@ -118,4 +121,3 @@ class Settings(BaseSettings):
 
 # Global settings instance
 settings = Settings()
-
