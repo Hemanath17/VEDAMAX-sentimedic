@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import re
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import List, Optional, Sequence
@@ -14,15 +13,6 @@ from src.retrieval.hybrid_search import HybridHit, HybridSearcher
 from src.retrieval.reranker import CrossEncoderReranker
 
 logger = get_logger(__name__)
-
-_PERSONAL_QUERY_PATTERN = re.compile(
-    r"\b("
-    r"my|mine|me|our|i\s+have|i\s+got|my\s+lab|my\s+report|my\s+results|"
-    r"my\s+glucose|my\s+blood|my\s+test|my\s+mri|my\s+x-?ray|uploaded|attached"
-    r")\b",
-    re.IGNORECASE,
-)
-
 
 class Corpus(str, Enum):
     KB = "kb"
@@ -192,31 +182,14 @@ class RetrievalPipeline:
         corpora: List[Corpus],
         user_id: Optional[str],
     ) -> List[Corpus]:
-        """Apply safety guards and lightweight routing heuristics."""
+        """Apply guardrails; search both corpora whenever a user document is allowed."""
         resolved = list(corpora)
 
         if Corpus.USER_DOC in resolved and not user_id:
             resolved = [corpus for corpus in resolved if corpus != Corpus.USER_DOC]
             logger.debug("Dropped USER_DOC corpus because user_id is missing")
 
-        if corpora == [Corpus.USER_DOC]:
-            return resolved if resolved else [Corpus.KB]
-
-        if (
-            Corpus.USER_DOC in resolved
-            and Corpus.KB in resolved
-            and user_id
-            and not self._query_looks_personal(query)
-        ):
-            resolved = [corpus for corpus in resolved if corpus != Corpus.USER_DOC]
-            logger.debug("Heuristic routing: general query -> KB only")
-
         return resolved or [Corpus.KB]
-
-    @staticmethod
-    def _query_looks_personal(query: str) -> bool:
-        """Detect personal-document style queries."""
-        return bool(_PERSONAL_QUERY_PATTERN.search(query))
 
     @staticmethod
     def _merge_candidates(per_corpus_hits: dict[Corpus, List[HybridHit]]) -> List[HybridHit]:

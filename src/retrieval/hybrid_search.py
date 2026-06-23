@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import re
+from collections import OrderedDict
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -15,7 +16,9 @@ from src.retrieval.vector_store.vector_store import VectorStore
 
 logger = get_logger(__name__)
 
-_TOKEN_PATTERN = re.compile(r"[a-z0-9]+")
+# Preserve clinical tokens like "5.8", "mg/dl", "x-ray", and "covid-19".
+_TOKEN_PATTERN = re.compile(r"[a-z0-9]+(?:[./%-][a-z0-9]+)*")
+DEFAULT_BM25_CACHE_SIZE = 128
 
 
 def tokenize(text: str) -> List[str]:
@@ -75,9 +78,14 @@ class HybridSearcher:
     Dense and sparse retrieval are fused with RRF within each corpus independently.
     """
 
-    def __init__(self, vector_store: Optional[VectorStore] = None) -> None:
+    def __init__(
+        self,
+        vector_store: Optional[VectorStore] = None,
+        max_cached_indexes: int = DEFAULT_BM25_CACHE_SIZE,
+    ) -> None:
         self.vector_store = vector_store or VectorStore()
-        self._bm25_indexes: Dict[Tuple[str, str], BM25Index] = {}
+        self.max_cached_indexes = max_cached_indexes
+        self._bm25_indexes: "OrderedDict[Tuple[str, str], BM25Index]" = OrderedDict()
 
     def index_key(self, corpus: str, user_id: str = "") -> Tuple[str, str]:
         """Cache key for BM25 index partitions."""
@@ -109,7 +117,9 @@ class HybridSearcher:
         key = self.index_key(corpus, normalized_user_id)
         index = BM25Index()
         index.build(chunks)
+        self._bm25_indexes.pop(key, None)
         self._bm25_indexes[key] = index
+        self._evict_if_needed()
         logger.info(
             f"Rebuilt BM25 index for corpus='{corpus}' user_id='{normalized_user_id or 'n/a'}' "
             f"({len(chunks)} chunks)"
@@ -124,9 +134,37 @@ class HybridSearcher:
     ) -> None:
         """Build BM25 index lazily if missing."""
         normalized_user_id = user_id or ""
-        key = self.index_key(corpus, normalized_user_id)
-        if key not in self._bm25_indexes:
-            self.rebuild_index(corpus, user_id=normalized_user_id or None, document_id=document_id)
+        self.rebuild_index(
+            corpus,
+            user_id=normalized_user_id or None,
+            document_id=document_id,
+        )
+
+    def invalidate_index(
+        self,
+        corpus: str,
+        user_id: Optional[str] = None,
+    ) -> None:
+        """Drop one cached BM25 index so the next query rebuilds it."""
+        key = self.index_key(corpus, user_id or "")
+        removed = self._bm25_indexes.pop(key, None)
+        if removed is not None:
+            logger.info(
+                f"Invalidated BM25 index for corpus='{corpus}' user_id='{user_id or 'n/a'}'"
+            )
+
+    def invalidate_all(self) -> None:
+        """Clear all cached BM25 indexes."""
+        self._bm25_indexes.clear()
+
+    def _evict_if_needed(self) -> None:
+        """Bound BM25 cache growth with oldest-entry eviction."""
+        while len(self._bm25_indexes) > self.max_cached_indexes:
+            evicted_key, _ = self._bm25_indexes.popitem(last=False)
+            logger.info(
+                "Evicted BM25 index from cache: "
+                f"corpus='{evicted_key[0]}' user_id='{evicted_key[1] or 'n/a'}'"
+            )
 
     def search(
         self,
@@ -179,6 +217,8 @@ class HybridSearcher:
 
         key = self.index_key(corpus, normalized_user_id)
         bm25_index = self._bm25_indexes.get(key)
+        if bm25_index is not None:
+            self._bm25_indexes.move_to_end(key)
         bm25_hits = (
             bm25_index.search(query, top_k=top_k) if bm25_index else []
         )

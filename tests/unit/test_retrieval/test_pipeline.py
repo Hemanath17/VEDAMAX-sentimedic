@@ -20,7 +20,7 @@ def _hit(chunk_id: str, text: str, corpus: str, rrf: float = 1.0) -> HybridHit:
 
 def test_no_user_docs_when_personal_query_has_no_uploads():
     hybrid = MagicMock()
-    hybrid.search.return_value = []
+    hybrid.search.side_effect = [[], []]
 
     pipeline = RetrievalPipeline(
         hybrid_searcher=hybrid,
@@ -38,26 +38,29 @@ def test_no_user_docs_when_personal_query_has_no_uploads():
     assert "No lab report" in (result.message or "")
 
 
-def test_general_query_routes_to_kb_only():
+def test_with_user_id_searches_both_corpora():
     hybrid = MagicMock()
-    hybrid.search.return_value = [_hit("kb-1", "Hypertension overview", "kb")]
+    hybrid.search.side_effect = [
+        [_hit("kb-1", "Hypertension overview", "kb")],
+        [_hit("doc-1", "Glucose is 140 mg/dL", "user_doc", rrf=0.9)],
+    ]
 
     reranker = MagicMock()
-    reranker.rerank.return_value = [(0, 2.5, 0.9)]
+    reranker.rerank.return_value = [(1, 2.5, 0.9), (0, 1.1, 0.75)]
 
     pipeline = RetrievalPipeline(hybrid_searcher=hybrid, reranker=reranker)
 
     result = pipeline.retrieve(
-        query="What is hypertension?",
+        query="Should I worry about a glucose of 140?",
         user_id="user-123",
         corpora=[Corpus.KB, Corpus.USER_DOC],
     )
 
     assert result.status == RetrievalStatus.OK
-    assert hybrid.search.call_count == 1
-    assert hybrid.search.call_args.kwargs["corpus"] == "kb"
+    assert hybrid.search.call_count == 2
+    assert {call.kwargs["corpus"] for call in hybrid.search.call_args_list} == {"kb", "user_doc"}
     assert result.kb_found is True
-    assert result.user_doc_found is False
+    assert result.user_doc_found is True
 
 
 def test_below_threshold_blocks_weak_matches():

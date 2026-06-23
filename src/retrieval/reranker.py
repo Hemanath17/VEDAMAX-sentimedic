@@ -71,8 +71,12 @@ class CrossEncoderReranker:
         top_k = top_k or settings.RERANKER_TOP_K
 
         if self._model is None:
-            logger.warning("Reranker unavailable; returning candidates in original order")
-            return [(idx, 0.0, 0.0) for idx in range(min(top_k, len(candidates)))]
+            logger.warning("Reranker unavailable; returning fused-order fallback scores")
+            fallback = []
+            for idx in range(min(top_k, len(candidates))):
+                normalized_score = max(0.5, 1.0 - (idx * 0.05))
+                fallback.append((idx, normalized_score, normalized_score))
+            return fallback
 
         pairs = [[query, text] for _, text in candidates]
         raw_scores = self._model.predict(pairs)
