@@ -9,13 +9,7 @@ from typing import Dict, List, Tuple
 from src.retrieval.pipeline import Corpus, RetrievalResult, RetrievalStatus, RetrievedChunk
 
 _CITATION_PATTERN = re.compile(r"\[S(\d+)\]")
-_NUMBER_PATTERN = re.compile(
-    r"(?<![A-Za-z0-9])"
-    r"(\d+(?:\.\d+)?(?:\s*(?:%|mg/dL|mmol/L|g/dL|mEq/L|mmHg|bpm|kg|lb|lbs|cm|mm|mL|L|IU|U))?"
-    r")"
-    r"(?![A-Za-z0-9])",
-    re.IGNORECASE,
-)
+_BARE_NUMBER_PATTERN = re.compile(r"(?<![\d.])(\d+(?:\.\d+)?)(?![\d.])")
 
 
 @dataclass
@@ -71,19 +65,27 @@ def validate_citations(
     return cleaned, citations
 
 
+def _extract_number_tokens(text: str) -> set[str]:
+    """Extract bare numeric tokens from text using boundary-safe matching."""
+    if not text:
+        return set()
+    return set(_BARE_NUMBER_PATTERN.findall(text))
+
+
 def verify_numbers(answer: str, retrieval_result: RetrievalResult) -> List[str]:
     """
-    Flag numeric values in the answer that do not appear in patient document chunks.
+    Flag numeric values in the answer that appear in neither evidence corpus.
 
-    Only numbers found in USER_DOC chunk text are considered allowed. General
-    knowledge numbers are not treated as patient-specific values.
+    Numbers are tokenized with boundary-safe matching so substrings like ``25``
+    do not match inside ``250``. A number is allowed if it appears as a full
+    token in USER_DOC chunks, KB chunks, or both.
 
     Args:
         answer: Generated answer text to inspect.
         retrieval_result: Retrieval output containing evidence chunks.
 
     Returns:
-        List of numeric strings from the answer that are not grounded in patient docs.
+        List of numeric strings from the answer that are not grounded in any chunk.
     """
     if not answer:
         return []
@@ -91,18 +93,18 @@ def verify_numbers(answer: str, retrieval_result: RetrievalResult) -> List[str]:
     user_text = " ".join(
         chunk.text for chunk in retrieval_result.chunks if chunk.corpus == Corpus.USER_DOC
     )
-    if not user_text.strip():
-        return []
+    kb_text = " ".join(
+        chunk.text for chunk in retrieval_result.chunks if chunk.corpus == Corpus.KB
+    )
+    allowed = _extract_number_tokens(user_text) | _extract_number_tokens(kb_text)
 
     flagged: List[str] = []
-    for match in _NUMBER_PATTERN.finditer(answer):
-        raw = match.group(1).strip()
-        numeric_match = re.match(r"(\d+(?:\.\d+)?)", raw)
-        if not numeric_match:
-            continue
-        number = numeric_match.group(1)
-        if number not in user_text and number not in flagged:
+    seen: set[str] = set()
+    for match in _BARE_NUMBER_PATTERN.finditer(answer):
+        number = match.group(1)
+        if number not in allowed and number not in seen:
             flagged.append(number)
+            seen.add(number)
     return flagged
 
 

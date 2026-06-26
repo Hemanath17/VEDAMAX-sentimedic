@@ -7,8 +7,8 @@ collections partitioned by corpus:
   - user_documents          -> corpus="user_doc" (scoped by user_id)
 """
 
-from typing import List, Dict, Any, Optional
-from uuid import uuid4
+from typing import List, Dict, Any, Optional, Union
+from uuid import NAMESPACE_URL, UUID, uuid4, uuid5
 
 try:
     from qdrant_client.models import PointStruct, Filter, FieldCondition, MatchValue
@@ -28,6 +28,29 @@ from src.config.constants import CORPUS_KB, CORPUS_USER_DOC, VALID_CORPORA
 from src.config.logging_config import get_logger
 
 logger = get_logger(__name__)
+
+
+def _resolve_point_id(chunk_id: Union[str, int]) -> Union[str, int]:
+    """Convert a logical chunk ID into a Qdrant-compatible point ID."""
+    if isinstance(chunk_id, int):
+        return chunk_id
+
+    chunk_id_str = str(chunk_id)
+    try:
+        UUID(chunk_id_str)
+        return chunk_id_str
+    except ValueError:
+        pass
+
+    if chunk_id_str.isdigit():
+        return int(chunk_id_str)
+
+    return str(uuid5(NAMESPACE_URL, chunk_id_str))
+
+
+def _logical_chunk_id(payload: Dict[str, Any], point_id: Union[str, int]) -> str:
+    """Prefer the stable logical chunk_id stored in payload over the Qdrant point id."""
+    return str(payload.get("chunk_id") or point_id)
 
 
 class VectorStore:
@@ -150,16 +173,17 @@ class VectorStore:
 
         for i, chunk in enumerate(chunks):
             chunk_metadata = chunk.get("metadata", {}) or {}
-            point_id = (
+            logical_chunk_id = (
                 chunk.get("chunk_id")
                 or chunk_metadata.get("chunk_id")
                 or str(uuid4())
             )
+            point_id = _resolve_point_id(logical_chunk_id)
             embedding = cached_embeddings[i]
 
             payload = {
                 "text": chunk.get("text", ""),
-                "chunk_id": point_id,
+                "chunk_id": logical_chunk_id,
                 "corpus": corpus,
                 "user_id": normalized_user_id,
                 "document_id": chunk_metadata.get("document_id", ""),
@@ -188,13 +212,17 @@ class VectorStore:
                     payload=payload,
                 )
             )
-            point_ids.append(point_id)
+            point_ids.append(logical_chunk_id)
 
         if points:
-            self.qdrant.upsert_points(
+            stored = self.qdrant.upsert_points(
                 collection_name=collection_name,
                 points=points,
             )
+            if not stored:
+                raise RuntimeError(
+                    f"Failed to store chunks in collection '{collection_name}'"
+                )
 
         logger.info(
             f"Stored {len(point_ids)} chunks in collection '{collection_name}' "
@@ -245,7 +273,7 @@ class VectorStore:
             for point in points:
                 payload = point.get("payload") or {}
                 chunks.append({
-                    "chunk_id": point["id"],
+                    "chunk_id": _logical_chunk_id(payload, point["id"]),
                     "text": payload.get("text", ""),
                     "corpus": payload.get("corpus", corpus),
                     "user_id": payload.get("user_id", ""),
@@ -306,7 +334,7 @@ class VectorStore:
         for result in results:
             payload = result["payload"] or {}
             formatted_results.append({
-                "chunk_id": result["id"],
+                "chunk_id": _logical_chunk_id(payload, result["id"]),
                 "text": payload.get("text", ""),
                 "score": result["score"],
                 "corpus": payload.get("corpus", corpus),

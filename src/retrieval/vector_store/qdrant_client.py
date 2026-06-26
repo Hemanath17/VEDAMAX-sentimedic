@@ -171,13 +171,27 @@ class QdrantClient:
             List of search results with scores and metadata
         """
         try:
-            search_results = self.client.search(
-                collection_name=collection_name,
-                query_vector=query_vector,
-                limit=top_k,
-                query_filter=filter,
-                score_threshold=score_threshold,
-            )
+            if hasattr(self.client, "search"):
+                search_results = self.client.search(
+                    collection_name=collection_name,
+                    query_vector=query_vector,
+                    limit=top_k,
+                    query_filter=filter,
+                    score_threshold=score_threshold,
+                )
+            elif hasattr(self.client, "query_points"):
+                response = self.client.query_points(
+                    collection_name=collection_name,
+                    query=query_vector,
+                    limit=top_k,
+                    query_filter=filter,
+                    score_threshold=score_threshold,
+                )
+                search_results = response.points
+            else:
+                raise AttributeError(
+                    "Installed qdrant-client has neither search nor query_points."
+                )
 
             # Format results
             results = []

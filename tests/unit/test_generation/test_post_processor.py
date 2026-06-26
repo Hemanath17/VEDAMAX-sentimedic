@@ -36,7 +36,7 @@ def test_validate_citations_drops_unknown_marker():
     assert citations[0].corpus == Corpus.USER_DOC
 
 
-def test_verify_numbers_flags_value_not_in_user_doc_chunks():
+def test_verify_numbers_flags_hallucinated_value_not_in_any_chunk():
     retrieval = RetrievalResult(
         status=RetrievalStatus.OK,
         chunks=[
@@ -54,6 +54,38 @@ def test_verify_numbers_flags_value_not_in_user_doc_chunks():
 
     assert "140" not in flagged
     assert "250" in flagged
+
+
+def test_verify_numbers_flags_substring_of_real_patient_number():
+    retrieval = RetrievalResult(
+        status=RetrievalStatus.OK,
+        chunks=[_chunk("u1", "Glucose is 250 mg/dL", Corpus.USER_DOC)],
+        user_doc_found=True,
+    )
+
+    flagged = verify_numbers("Your glucose is 25 mg/dL.", retrieval)
+
+    assert "25" in flagged
+    assert "250" not in flagged
+
+
+def test_verify_numbers_does_not_flag_kb_normal_range_number():
+    retrieval = RetrievalResult(
+        status=RetrievalStatus.OK,
+        chunks=[
+            _chunk("u1", "Patient glucose: 140 mg/dL", Corpus.USER_DOC),
+            _chunk("k1", "Normal fasting glucose range is 70-99 mg/dL", Corpus.KB),
+        ],
+        kb_found=True,
+        user_doc_found=True,
+    )
+
+    flagged = verify_numbers(
+        "A typical fasting range is 70-99 mg/dL; your report shows 140 mg/dL.",
+        retrieval,
+    )
+
+    assert flagged == []
 
 
 def test_verify_numbers_returns_empty_when_no_numbers():

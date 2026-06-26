@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import List, Optional, Union
 
-from src.generation.llm_client import LLMClient, LLMError, OpenAIClient
+from src.generation.llm_client import LLMClient, LLMError, AnthropicClient, OpenAIClient
 from src.generation.post_processor import (
     Citation,
     build_disclaimer,
@@ -18,6 +18,10 @@ from src.retrieval.pipeline import RetrievalResult, RetrievalStatus
 
 _LLM_ERROR_MESSAGE = (
     "I'm having trouble generating a response right now. Please try again."
+)
+_FLAGGED_NUMBERS_WARNING = (
+    "⚠️ Note: some figures above could not be verified against your documents and "
+    "may be inaccurate — please confirm with your report or clinician."
 )
 
 
@@ -42,7 +46,7 @@ class ResponseGenerator:
     """
 
     def __init__(self, llm_client: Optional[LLMClient] = None) -> None:
-        self.llm_client = llm_client or OpenAIClient()
+        self.llm_client = llm_client or AnthropicClient()
 
     def generate(
         self,
@@ -94,6 +98,8 @@ class ResponseGenerator:
 
         cleaned_answer, citations = validate_citations(raw_answer, marker_to_chunk)
         flagged_numbers = verify_numbers(cleaned_answer, retrieval_result)
+        if flagged_numbers:
+            cleaned_answer = f"{cleaned_answer}\n\n{_FLAGGED_NUMBERS_WARNING}"
 
         return GeneratedAnswer(
             answer=cleaned_answer,

@@ -44,6 +44,7 @@ class Settings(BaseSettings):
     # LLM
     OPENAI_API_KEY: Optional[str] = None
     ANTHROPIC_API_KEY: Optional[str] = None
+    ANTHROPIC_MODEL: str = "claude-sonnet-4-6"
     LLM_MODEL: str = "gpt-4-turbo-preview"
     LLM_TEMPERATURE: float = 0.7
     LLM_MAX_TOKENS: int = 2000

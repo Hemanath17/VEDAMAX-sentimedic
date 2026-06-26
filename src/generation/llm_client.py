@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING, Optional
 from src.config.logging_config import get_logger
 
 if TYPE_CHECKING:
+    from anthropic import Anthropic
     from openai import OpenAI
 from src.config.settings import settings
 
@@ -96,3 +97,58 @@ class OpenAIClient(LLMClient):
         except Exception as exc:
             logger.error("OpenAI generation failed: %s", exc, exc_info=True)
             raise LLMError(f"OpenAI generation failed: {exc}") from exc
+
+
+class AnthropicClient(LLMClient):
+    """Anthropic Messages API client backed by project settings."""
+
+    def __init__(
+        self,
+        api_key: Optional[str] = None,
+        model: Optional[str] = None,
+        temperature: Optional[float] = None,
+        max_tokens: Optional[int] = None,
+        client: Optional["Anthropic"] = None,
+    ) -> None:
+        self.api_key = api_key or settings.ANTHROPIC_API_KEY
+        self.model = model or settings.ANTHROPIC_MODEL
+        self.temperature = temperature if temperature is not None else effective_temperature()
+        self.max_tokens = max_tokens or settings.LLM_MAX_TOKENS
+        self._client = client
+
+    def _get_client(self) -> "Anthropic":
+        if self._client is not None:
+            return self._client
+        if not self.api_key:
+            raise LLMError("ANTHROPIC_API_KEY is not configured.")
+        try:
+            from anthropic import Anthropic
+        except ImportError as exc:
+            raise LLMError("anthropic package is not installed.") from exc
+        return Anthropic(api_key=self.api_key)
+
+    def generate(self, system_prompt: str, user_prompt: str) -> str:
+        """Call Anthropic messages API and return assistant message text."""
+        try:
+            client = self._get_client()
+            response = client.messages.create(
+                model=self.model,
+                max_tokens=self.max_tokens,
+                temperature=self.temperature,
+                system=system_prompt,
+                messages=[{"role": "user", "content": user_prompt}],
+            )
+            text_parts = [
+                block.text
+                for block in response.content
+                if getattr(block, "type", None) == "text" and getattr(block, "text", "")
+            ]
+            content = "\n".join(text_parts).strip()
+            if not content:
+                raise LLMError("Anthropic returned an empty response.")
+            return content
+        except LLMError:
+            raise
+        except Exception as exc:
+            logger.error("Anthropic generation failed: %s", exc, exc_info=True)
+            raise LLMError(f"Anthropic generation failed: {exc}") from exc
