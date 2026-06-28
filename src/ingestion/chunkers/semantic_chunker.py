@@ -236,7 +236,7 @@ class SemanticChunker(ChunkStrategy):
                         sub_chunks = self._token_chunker.chunk(chunk_text, metadata)
                         for sub_chunk in sub_chunks:
                             sub_chunk["chunk_index"] = chunk_index
-                            sub_chunk["metadata"]["topic_shift"] = True
+                            sub_chunk["topic_shift"] = True
                             chunks.append(sub_chunk)
                             chunk_index += 1
                     else:
@@ -245,7 +245,7 @@ class SemanticChunker(ChunkStrategy):
                         chunk_metadata = self.create_chunk_metadata(
                             metadata, chunk_index, start_char, start_char + len(chunk_text)
                         )
-                        chunk_metadata["metadata"]["topic_shift"] = True
+                        chunk_metadata["topic_shift"] = True
                         chunks.append({"text": chunk_text, **chunk_metadata})
                         chunk_index += 1
                 elif self.validate_chunk(chunk_text, chunk_index):
@@ -253,8 +253,8 @@ class SemanticChunker(ChunkStrategy):
                     chunk_metadata = self.create_chunk_metadata(
                         metadata, chunk_index, start_char, end_char
                     )
-                    chunk_metadata["metadata"]["topic_shift"] = True
-                    chunk_metadata["metadata"]["sentence_count"] = len(chunk_sentences)
+                    chunk_metadata["topic_shift"] = True
+                    chunk_metadata["sentence_count"] = len(chunk_sentences)
                     chunks.append({"text": chunk_text, **chunk_metadata})
                     chunk_index += 1
 

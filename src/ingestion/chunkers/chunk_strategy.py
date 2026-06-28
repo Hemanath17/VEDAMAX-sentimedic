@@ -115,16 +115,23 @@ class ChunkStrategy(ABC):
             logger.warning(f"Empty chunk at index {chunk_index}")
             return False
 
-        chunk_length = len(chunk_text)
-        if chunk_length < self.min_chunk_size:
+        # NOTE: chunk_size/max_chunk_size are token-based budgets (set by
+        # TokenChunker/SemanticChunker), but chunk_text here is raw text.
+        # Comparing character count directly against a token-scaled limit
+        # is a unit mismatch -- it rejects perfectly reasonable chunks
+        # (e.g. a 2600-character / ~650-token chunk against a 1024 limit).
+        # Approximate token count instead, using a conservative ~4 chars/token.
+        approx_token_count = max(1, len(chunk_text) // 4)
+
+        if approx_token_count < self.min_chunk_size:
             logger.warning(
-                f"Chunk {chunk_index} is too small: {chunk_length} < {self.min_chunk_size}"
+                f"Chunk {chunk_index} is too small: ~{approx_token_count} tokens < {self.min_chunk_size}"
             )
             return False
 
-        if chunk_length > self.max_chunk_size:
+        if approx_token_count > self.max_chunk_size:
             logger.warning(
-                f"Chunk {chunk_index} is too large: {chunk_length} > {self.max_chunk_size}"
+                f"Chunk {chunk_index} is too large: ~{approx_token_count} tokens > {self.max_chunk_size}"
             )
             return False
 

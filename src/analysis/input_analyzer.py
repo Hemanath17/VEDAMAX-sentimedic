@@ -2,6 +2,7 @@
 
 from typing import Dict, Any, Optional, List
 import asyncio
+import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from src.analysis.ner.medical_ner import MedicalNER

@@ -11,6 +11,7 @@ from src.retrieval.pipeline import Corpus, RetrievalResult, RetrievalStatus, Ret
 _CITATION_PATTERN = re.compile(r"\[S(\d+)\]")
 _BARE_NUMBER_PATTERN = re.compile(r"(?<![\d.])(\d+(?:\.\d+)?)(?![\d.])")
 
+_MIN_FLAGGABLE_DIGITS = 2
 
 @dataclass
 class Citation:
@@ -20,6 +21,11 @@ class Citation:
     source_ref: str
     corpus: Corpus
 
+def _is_flaggable_number(number: str) -> bool:
+    """Return True if a numeric token is substantial enough to verify."""
+    if "." in number:
+        return True
+    return len(number) >= _MIN_FLAGGABLE_DIGITS
 
 def validate_citations(
     answer: str,
@@ -98,14 +104,22 @@ def verify_numbers(answer: str, retrieval_result: RetrievalResult) -> List[str]:
     )
     allowed = _extract_number_tokens(user_text) | _extract_number_tokens(kb_text)
 
+    
+
     flagged: List[str] = []
     seen: set[str] = set()
     for match in _BARE_NUMBER_PATTERN.finditer(answer):
         number = match.group(1)
+        if not _is_flaggable_number(number):
+            continue
         if number not in allowed and number not in seen:
             flagged.append(number)
             seen.add(number)
+
+    
     return flagged
+
+    
 
 
 def build_disclaimer(status: RetrievalStatus | str) -> str:
