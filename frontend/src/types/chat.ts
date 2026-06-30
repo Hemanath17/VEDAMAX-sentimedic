@@ -10,9 +10,9 @@ export interface Citation {
 
 export interface QueryRequest {
   question: string;
+  session_id: string;
   user_id?: string | null;
   risk_level?: number;
-  session_summary?: string | null;
 }
 
 export interface QueryResponse {
@@ -40,6 +40,13 @@ export interface ChatSession {
   id: string;
   title: string;
   messages: ChatMessage[];
+  uploadedDocuments?: UploadedDocument[];
   createdAt: number;
   updatedAt: number;
+}
+
+export interface UploadedDocument {
+  documentId: string;
+  filename: string;
+  chunkCount: number;
 }

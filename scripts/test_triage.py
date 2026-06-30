@@ -67,6 +67,7 @@ def main() -> None:
 
         result = orchestrator.handle(
             question=case["question"],
+            session_id=f"test-{case['id']}",
             risk_level=case["risk_level"],
         )
 

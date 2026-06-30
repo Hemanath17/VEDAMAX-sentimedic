@@ -20,6 +20,7 @@ services:
     depends_on:
       - qdrant
       - phoenix
+      - postgres
     restart: unless-stopped
     networks:
       - sentimedical-network
@@ -49,9 +50,25 @@ services:
     networks:
       - sentimedical-network
 
+  postgres:
+    image: postgres:16
+    container_name: sentimedical-postgres
+    environment:
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: vedamax
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    restart: unless-stopped
+    networks:
+      - sentimedical-network
+
 volumes:
   qdrant_storage:
   phoenix_data:
+  postgres_data:
 
 networks:
   sentimedical-network:

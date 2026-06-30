@@ -18,9 +18,9 @@ _orchestrator = TriageOrchestrator()
 
 class QueryRequest(BaseModel):
     question: str
+    session_id: str
     user_id: Optional[str] = None
     risk_level: float = 0.0
-    session_summary: Optional[str] = None
 
 
 class CitationResponse(BaseModel):
@@ -45,9 +45,9 @@ async def query(request: Request, body: QueryRequest) -> QueryResponse:
 
     result = _orchestrator.handle(
         question=question,
+        session_id=body.session_id,
         user_id=body.user_id,
         risk_level=body.risk_level,
-        session_summary=body.session_summary,
     )
 
     citations: List[CitationResponse] = []

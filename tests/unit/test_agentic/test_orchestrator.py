@@ -6,9 +6,11 @@ from src.agentic.router.triage_agent import TriageLevel
 def test_emergency_bypasses_retrieval_and_generation():
     mock_retrieval = MagicMock()
     mock_generator = MagicMock()
+    mock_context = MagicMock()
     orchestrator = TriageOrchestrator(
         retrieval_pipeline=mock_retrieval,
         response_generator=mock_generator,
+        context_manager=mock_context,
     )
     # Force the triage path without calling the real LLM
     import src.agentic.router.orchestrator as orch_module
@@ -16,7 +18,10 @@ def test_emergency_bypasses_retrieval_and_generation():
         "T", (), {"level": TriageLevel.EMERGENCY, "reason": "test"}
     )()
 
-    result = orchestrator.handle("I have crushing chest pain right now")
+    result = orchestrator.handle(
+        "I have crushing chest pain right now",
+        session_id="test-session",
+    )
 
     mock_retrieval.retrieve.assert_not_called()
     mock_generator.generate.assert_not_called()

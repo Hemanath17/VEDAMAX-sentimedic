@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { uploadDocument, IngestApiError } from "../api/ingestApi";
 import { sendQuery, ApiError } from "../api/queryApi";
 import type { ChatMessage, ChatSession } from "../types/chat";
 import {
@@ -9,6 +10,7 @@ import {
   sortSessionsByRecent,
   titleFromMessage,
 } from "../utils/chatStorage";
+import { getUserId } from "../utils/userId";
 
 function createEmptySession(id?: string): ChatSession {
   const now = Date.now();
@@ -16,6 +18,7 @@ function createEmptySession(id?: string): ChatSession {
     id: id ?? makeSessionId(),
     title: "New chat",
     messages: [],
+    uploadedDocuments: [],
     createdAt: now,
     updatedAt: now,
   };
@@ -35,11 +38,15 @@ interface UseChatSessionsOptions {
   userId?: string;
 }
 
+const ACCEPTED_EXTENSIONS = [".pdf", ".docx"];
+
 export function useChatSessions({ userId }: UseChatSessionsOptions = {}) {
+  const effectiveUserId = useMemo(() => userId ?? getUserId(), [userId]);
   const [initial] = useState(getInitialState);
   const [sessions, setSessions] = useState<ChatSession[]>(initial.sessions);
   const [activeSessionId, setActiveSessionId] = useState<string>(initial.activeSessionId);
   const [isLoading, setIsLoading] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
 
   useEffect(() => {
     saveSessions(sessions);
@@ -97,7 +104,7 @@ export function useChatSessions({ userId }: UseChatSessionsOptions = {}) {
   const sendMessage = useCallback(
     async (text: string) => {
       const trimmed = text.trim();
-      if (!trimmed || isLoading) return;
+      if (!trimmed || isLoading || isUploading) return;
 
       const sessionId = activeSessionId;
       const session = sessions.find((s) => s.id === sessionId);
@@ -123,7 +130,11 @@ export function useChatSessions({ userId }: UseChatSessionsOptions = {}) {
       setIsLoading(true);
 
       try {
-        const result = await sendQuery({ question: trimmed, user_id: userId });
+        const result = await sendQuery({
+          question: trimmed,
+          session_id: sessionId,
+          user_id: effectiveUserId,
+        });
 
         const assistantMessage: ChatMessage = {
           id: makeMessageId(),
@@ -163,7 +174,83 @@ export function useChatSessions({ userId }: UseChatSessionsOptions = {}) {
         setIsLoading(false);
       }
     },
-    [activeSessionId, isLoading, sessions, updateSession, userId],
+    [activeSessionId, effectiveUserId, isLoading, isUploading, sessions, updateSession],
+  );
+
+  const uploadFile = useCallback(
+    async (file: File) => {
+      if (isLoading || isUploading) return;
+
+      const ext = file.name.includes(".")
+        ? `.${file.name.split(".").pop()?.toLowerCase()}`
+        : "";
+      if (!ACCEPTED_EXTENSIONS.includes(ext)) {
+        updateSession(activeSessionId, (s) => ({
+          ...s,
+          messages: [
+            ...s.messages,
+            {
+              id: makeMessageId(),
+              role: "error",
+              text: "Only PDF and DOCX files are supported.",
+              timestamp: Date.now(),
+            },
+          ],
+          updatedAt: Date.now(),
+        }));
+        return;
+      }
+
+      setIsUploading(true);
+
+      try {
+        const result = await uploadDocument(file, effectiveUserId);
+
+        updateSession(activeSessionId, (s) => ({
+          ...s,
+          uploadedDocuments: [
+            ...(s.uploadedDocuments ?? []),
+            {
+              documentId: result.document_id,
+              filename: result.filename,
+              chunkCount: result.chunk_count,
+            },
+          ],
+          messages: [
+            ...s.messages,
+            {
+              id: makeMessageId(),
+              role: "assistant",
+              text: result.message,
+              timestamp: Date.now(),
+            },
+          ],
+          updatedAt: Date.now(),
+        }));
+      } catch (err) {
+        const message =
+          err instanceof IngestApiError
+            ? err.message
+            : "Failed to upload document. Please try again.";
+
+        updateSession(activeSessionId, (s) => ({
+          ...s,
+          messages: [
+            ...s.messages,
+            {
+              id: makeMessageId(),
+              role: "error",
+              text: message,
+              timestamp: Date.now(),
+            },
+          ],
+          updatedAt: Date.now(),
+        }));
+      } finally {
+        setIsUploading(false);
+      }
+    },
+    [activeSessionId, effectiveUserId, isLoading, isUploading, updateSession],
   );
 
   return {
@@ -171,9 +258,12 @@ export function useChatSessions({ userId }: UseChatSessionsOptions = {}) {
     activeSession,
     activeSessionId,
     isLoading,
+    isUploading,
+    userId: effectiveUserId,
     createNewChat,
     selectChat,
     deleteChat,
     sendMessage,
+    uploadFile,
   };
 }

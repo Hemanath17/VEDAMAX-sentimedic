@@ -9,10 +9,12 @@ export function AppShell() {
     activeSession,
     activeSessionId,
     isLoading,
+    isUploading,
     createNewChat,
     selectChat,
     deleteChat,
     sendMessage,
+    uploadFile,
   } = useChatSessions();
 
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -55,7 +57,9 @@ export function AppShell() {
       <MainChat
         activeSession={activeSession}
         isLoading={isLoading}
+        isUploading={isUploading}
         sendMessage={sendMessage}
+        uploadFile={uploadFile}
         onOpenSidebar={() => setSidebarOpen(true)}
       />
     </div>

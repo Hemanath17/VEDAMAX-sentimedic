@@ -1,3 +1,4 @@
+import { AttachmentBar } from "../AttachmentBar";
 import { ChatComposer } from "../ChatComposer";
 import { EmptyState } from "../EmptyState";
 import { MessageList } from "../MessageList";
@@ -14,17 +15,23 @@ function MenuIcon() {
 interface MainChatProps {
   activeSession: ChatSession;
   isLoading: boolean;
+  isUploading: boolean;
   sendMessage: (text: string) => void;
+  uploadFile: (file: File) => void;
   onOpenSidebar: () => void;
 }
 
 export function MainChat({
   activeSession,
   isLoading,
+  isUploading,
   sendMessage,
+  uploadFile,
   onOpenSidebar,
 }: MainChatProps) {
-  const isEmpty = activeSession.messages.length === 0 && !isLoading;
+  const isEmpty = activeSession.messages.length === 0 && !isLoading && !isUploading;
+  const busy = isLoading || isUploading;
+  const uploadedDocuments = activeSession.uploadedDocuments ?? [];
 
   return (
     <div className="flex h-full flex-1 flex-col bg-baymax-bg">
@@ -41,13 +48,24 @@ export function MainChat({
       </header>
 
       {isEmpty ? (
-        <EmptyState onSend={sendMessage} disabled={isLoading} />
+        <EmptyState
+          onSend={sendMessage}
+          onUpload={uploadFile}
+          disabled={isLoading}
+          isUploading={isUploading}
+        />
       ) : (
         <>
           <MessageList messages={activeSession.messages} isLoading={isLoading} />
           <div className="border-t border-white/10 bg-baymax-bg px-4 py-4">
             <div className="mx-auto max-w-3xl">
-              <ChatComposer onSend={sendMessage} disabled={isLoading} />
+              <AttachmentBar documents={uploadedDocuments} />
+              <ChatComposer
+                onSend={sendMessage}
+                onUpload={uploadFile}
+                disabled={busy}
+                isUploading={isUploading}
+              />
             </div>
           </div>
         </>
