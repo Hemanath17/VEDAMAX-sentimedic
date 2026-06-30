@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { uploadDocument, IngestApiError } from "../api/ingestApi";
+import { uploadImage, UploadApiError } from "../api/uploadApi";
 import { sendQuery, ApiError } from "../api/queryApi";
 import type { ChatMessage, ChatSession } from "../types/chat";
 import {
@@ -38,7 +39,12 @@ interface UseChatSessionsOptions {
   userId?: string;
 }
 
-const ACCEPTED_EXTENSIONS = [".pdf", ".docx"];
+const ACCEPTED_DOCUMENT_EXTENSIONS = [".pdf", ".docx"];
+const ACCEPTED_IMAGE_EXTENSIONS = [".png", ".jpg", ".jpeg", ".webp"];
+const ACCEPTED_EXTENSIONS = [
+  ...ACCEPTED_DOCUMENT_EXTENSIONS,
+  ...ACCEPTED_IMAGE_EXTENSIONS,
+];
 
 export function useChatSessions({ userId }: UseChatSessionsOptions = {}) {
   const effectiveUserId = useMemo(() => userId ?? getUserId(), [userId]);
@@ -184,6 +190,7 @@ export function useChatSessions({ userId }: UseChatSessionsOptions = {}) {
       const ext = file.name.includes(".")
         ? `.${file.name.split(".").pop()?.toLowerCase()}`
         : "";
+
       if (!ACCEPTED_EXTENSIONS.includes(ext)) {
         updateSession(activeSessionId, (s) => ({
           ...s,
@@ -191,8 +198,8 @@ export function useChatSessions({ userId }: UseChatSessionsOptions = {}) {
             ...s.messages,
             {
               id: makeMessageId(),
-              role: "error",
-              text: "Only PDF and DOCX files are supported.",
+              role: "error" as const,
+              text: "Supported formats: PDF, DOCX (documents) or PNG, JPG, WEBP (lab report photos).",
               timestamp: Date.now(),
             },
           ],
@@ -204,24 +211,41 @@ export function useChatSessions({ userId }: UseChatSessionsOptions = {}) {
       setIsUploading(true);
 
       try {
-        const result = await uploadDocument(file, effectiveUserId);
+        const isImage = ACCEPTED_IMAGE_EXTENSIONS.includes(ext);
+
+        let documentId: string;
+        let message: string;
+        let chunkCount: number;
+
+        if (isImage) {
+          const result = await uploadImage(file, effectiveUserId);
+          documentId = result.document_id ?? `img-${Date.now()}`;
+          chunkCount = result.chunks_stored;
+          message = result.message;
+        } else {
+          const result = await uploadDocument(file, effectiveUserId);
+          documentId = result.document_id;
+          chunkCount = result.chunk_count;
+          message = result.message;
+        }
 
         updateSession(activeSessionId, (s) => ({
           ...s,
           uploadedDocuments: [
             ...(s.uploadedDocuments ?? []),
             {
-              documentId: result.document_id,
-              filename: result.filename,
-              chunkCount: result.chunk_count,
+              documentId,
+              filename: file.name,
+              chunkCount,
+              type: isImage ? "image" : "document",
             },
           ],
           messages: [
             ...s.messages,
             {
               id: makeMessageId(),
-              role: "assistant",
-              text: result.message,
+              role: "assistant" as const,
+              text: message,
               timestamp: Date.now(),
             },
           ],
@@ -229,9 +253,9 @@ export function useChatSessions({ userId }: UseChatSessionsOptions = {}) {
         }));
       } catch (err) {
         const message =
-          err instanceof IngestApiError
-            ? err.message
-            : "Failed to upload document. Please try again.";
+          err instanceof IngestApiError || err instanceof UploadApiError
+            ? (err as Error).message
+            : "Failed to upload. Please try again.";
 
         updateSession(activeSessionId, (s) => ({
           ...s,
@@ -239,7 +263,7 @@ export function useChatSessions({ userId }: UseChatSessionsOptions = {}) {
             ...s.messages,
             {
               id: makeMessageId(),
-              role: "error",
+              role: "error" as const,
               text: message,
               timestamp: Date.now(),
             },

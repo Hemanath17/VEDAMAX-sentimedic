@@ -49,4 +49,5 @@ export interface UploadedDocument {
   documentId: string;
   filename: string;
   chunkCount: number;
+  type: "document" | "image";
 }

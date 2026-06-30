@@ -2,6 +2,8 @@
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from phoenix.otel import register
+from openinference.instrumentation.anthropic import AnthropicInstrumentor
 
 from src.config.settings import settings
 from src.config.logging_config import setup_logging, get_logger
@@ -10,6 +12,23 @@ from src.api.routes import health, ingest, query, upload
 # Setup logging
 setup_logging()
 logger = get_logger(__name__)
+
+# ---------------------------------------------------------------------------
+# Phoenix tracing setup
+# Registers an OpenTelemetry tracer that exports spans to the Phoenix
+# instance running at localhost:6006. Every Anthropic API call is
+# automatically instrumented -- you'll see triage, generation, and
+# small-talk LLM calls as individual spans in the Phoenix UI.
+# ---------------------------------------------------------------------------
+try:
+    tracer_provider = register(
+        project_name="vedamax-sentimedic",
+        endpoint="http://localhost:6006/v1/traces",
+    )
+    AnthropicInstrumentor().instrument(tracer_provider=tracer_provider)
+    logger.info("Phoenix tracing enabled at http://localhost:6006")
+except Exception as exc:
+    logger.warning(f"Phoenix tracing could not be enabled: {exc} -- continuing without tracing")
 
 # Create FastAPI app
 app = FastAPI(
@@ -22,7 +41,7 @@ app = FastAPI(
 # CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Configure appropriately for production
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -31,8 +50,8 @@ app.add_middleware(
 # Include routers
 app.include_router(health.router)
 app.include_router(query.router)
-app.include_router(ingest.router)
 app.include_router(upload.router)
+app.include_router(ingest.router)
 
 
 @app.get("/")

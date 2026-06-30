@@ -77,7 +77,7 @@ export function ChatComposer({
             <input
               ref={fileInputRef}
               type="file"
-              accept=".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+              accept=".pdf,.docx,.png,.jpg,.jpeg,.webp,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,image/png,image/jpeg,image/webp"
               className="hidden"
               onChange={handleFileChange}
             />
@@ -85,7 +85,7 @@ export function ChatComposer({
               type="button"
               disabled={busy}
               aria-label="Attach document"
-              title="Upload PDF or DOCX"
+              title="Upload lab report (PDF, DOCX, or photo)"
               onClick={() => fileInputRef.current?.click()}
               className="mb-2 ml-2 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-baymax-textMuted transition hover:bg-baymax-surface hover:text-baymax-text disabled:cursor-not-allowed disabled:opacity-30"
             >
@@ -120,7 +120,7 @@ export function ChatComposer({
         </button>
       </div>
       <p className="mt-2 text-center text-xs text-baymax-textMuted">
-        Attach a lab report (PDF/DOCX) or ask a general health question.
+        Attach a lab report (PDF, DOCX, or photo) or ask a health question.
       </p>
     </form>
   );

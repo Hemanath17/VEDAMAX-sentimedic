@@ -2,20 +2,17 @@
 
 from __future__ import annotations
 
+from functools import lru_cache
+from pathlib import Path
 from typing import Optional
 
-_SYSTEM_PROMPT_TEMPLATE = """You are a medical information assistant. You explain health information \
-clearly and kindly. You do NOT diagnose, prescribe, or give treatment orders.
+_PROMPT_FILE = Path(__file__).with_name("vedamax_system_prompt.txt")
 
-RULES:
-- Use ONLY the evidence below. If it doesn't cover something, say so.
-- Patient-specific values (lab numbers, their results) may ONLY come from \
-the [PATIENT DOCUMENTS] block. Never state a patient number not found there.
-- General explanations come from the [GENERAL KNOWLEDGE] block.
-- When a patient value differs from a normal range, say so plainly: \
-"A typical range is X; your report shows Y, which is above/below that."
-- Cite every factual sentence with its source marker, e.g. [S1].
-{persona_line}"""
+
+@lru_cache(maxsize=1)
+def _load_base_system_prompt() -> str:
+    """Load the VEDAMAX system prompt from the companion text file."""
+    return _PROMPT_FILE.read_text(encoding="utf-8").strip()
 
 
 def build_system_prompt(persona: Optional[str] = None) -> str:
@@ -28,8 +25,10 @@ def build_system_prompt(persona: Optional[str] = None) -> str:
     Returns:
         Formatted system prompt string for the LLM.
     """
+    prompt = _load_base_system_prompt()
     if persona and persona.strip():
-        persona_line = f"- {persona.strip()}"
-    else:
-        persona_line = ""
-    return _SYSTEM_PROMPT_TEMPLATE.format(persona_line=persona_line)
+        prompt = (
+            f"{prompt}\n\n[ADDITIONAL TONE GUIDANCE FOR THIS RESPONSE]\n"
+            f"- {persona.strip()}"
+        )
+    return prompt
