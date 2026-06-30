@@ -12,6 +12,7 @@ from typing import Optional
 from src.agentic.router.triage_agent import TriageLevel, TriageResult, run_triage
 from src.config.logging_config import get_logger
 from src.context.context_manager import ContextManager
+from src.generation.llm_client import LLMError
 from src.generation.response_generator import GeneratedAnswer, ResponseGenerator
 from src.retrieval.pipeline import RetrievalPipeline
 
@@ -25,6 +26,20 @@ _EMERGENCY_MESSAGE = (
     "911) or go to your nearest emergency room. If you are thinking about harming "
     "yourself, you can call or text 988 (Suicide & Crisis Lifeline) in the US, "
     "available 24/7."
+)
+
+_SMALL_TALK_FALLBACK = (
+    "Hi! I'm here whenever you're ready to talk. How can I help you today?"
+)
+
+_SMALL_TALK_SYSTEM_PROMPT = (
+    "You are VEDAMAX, a warm, calm health information assistant with the "
+    "personality of Baymax from Big Hero 6 -- caring, gentle, and reassuring. "
+    "The user is having a casual conversation. Respond warmly and briefly "
+    "(2-3 sentences maximum). If the conversation summary mentions prior "
+    "health topics the user discussed, you may gently acknowledge them but "
+    "do not bring up medical details unprompted. Never diagnose, prescribe, "
+    "or give medical advice in this reply. Just be a warm, present friend."
 )
 
 
@@ -128,6 +143,26 @@ class TriageOrchestrator:
             return "gentle_and_reassuring"
         return None
 
+    def _generate_small_talk_reply(
+        self,
+        question: str,
+        context_summary: Optional[str],
+    ) -> str:
+        """Generate a brief, warm reply for casual conversation turns."""
+        user_parts = [f"User message: {question.strip()}"]
+        if context_summary:
+            user_parts.insert(0, f"Conversation summary:\n{context_summary}")
+        user_prompt = "\n\n".join(user_parts)
+
+        try:
+            return self.response_generator.llm_client.generate(
+                _SMALL_TALK_SYSTEM_PROMPT,
+                user_prompt,
+            ).strip()
+        except LLMError as exc:
+            logger.warning("Small-talk LLM call failed; using fallback reply: %s", exc)
+            return _SMALL_TALK_FALLBACK
+
     def handle(
         self,
         question: str,
@@ -164,6 +199,23 @@ class TriageOrchestrator:
             return TriagedAnswer(
                 answer_text=_EMERGENCY_MESSAGE,
                 triage_level=TriageLevel.EMERGENCY,
+                generated=None,
+            )
+
+        if triage_result.level == TriageLevel.SMALL_TALK:
+            context_summary = self._safe_get_personalization_context(
+                memory_user_id, session_id
+            )
+            reply = self._generate_small_talk_reply(question, context_summary)
+            self._safe_process_message(
+                user_id=memory_user_id,
+                session_id=session_id,
+                role="assistant",
+                content=reply,
+            )
+            return TriagedAnswer(
+                answer_text=reply,
+                triage_level=TriageLevel.SMALL_TALK,
                 generated=None,
             )
 

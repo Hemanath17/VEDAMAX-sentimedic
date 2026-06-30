@@ -27,6 +27,7 @@ logger = get_logger(__name__)
 
 class TriageLevel(str, Enum):
     EMERGENCY = "emergency"  # bypass retrieval/generation entirely
+    SMALL_TALK = "small_talk"  # casual chat; no KB retrieval needed
     DISTRESSED = "distressed"  # proceed, but use a gentler persona
     ROUTINE = "routine"  # proceed normally
 
@@ -38,18 +39,30 @@ class TriageResult:
 
 
 _TRIAGE_SYSTEM_PROMPT = """You are a medical triage classifier. Your ONLY job \
-is to read a single user message and decide if it describes a possible \
-medical emergency RIGHT NOW (e.g. chest pain, difficulty breathing, signs of \
-stroke, severe bleeding, suicidal intent, loss of consciousness, severe \
-allergic reaction).
+is to read a single user message and classify it into exactly one of four \
+categories:
 
-Judge the CONTENT, not the tone. A calmly-worded message describing an \
-emergency is still an emergency. A frightened-sounding message about a routine \
-topic (like asking about a normal lab value) is NOT an emergency.
+EMERGENCY -- current or imminent medical emergency (chest pain, difficulty \
+breathing, suicidal intent, severe bleeding, stroke symptoms, loss of \
+consciousness, severe allergic reaction). When in doubt between EMERGENCY and \
+anything else, classify EMERGENCY.
 
-Respond with EXACTLY one word, nothing else:
-EMERGENCY - if the message describes a current or imminent medical emergency.
-ROUTINE - if it does not.
+SMALL_TALK -- greetings, thanks, casual chat, social check-ins, or any \
+message with no health information need ("hi", "hello", "thanks", "how are \
+you", "good morning", "bye", "can you help me?"). Judge by INTENT not length \
+-- a single sentence asking a genuine health question is ROUTINE, not \
+SMALL_TALK just because it's short. SMALL_TALK must never capture messages \
+that contain a real health question or symptom, even if they start casually \
+("hi, is my glucose high?" is ROUTINE, not SMALL_TALK).
+
+DISTRESSED -- emotionally charged about a health topic but not an emergency \
+("I'm really scared about my results", "I'm so worried").
+
+ROUTINE -- normal informational health question with no urgency or distress \
+signal.
+
+Respond with EXACTLY one word from the four options above, nothing else:
+EMERGENCY, SMALL_TALK, DISTRESSED, or ROUTINE.
 """
 
 
@@ -64,6 +77,10 @@ def _classify_with_llm(question: str, llm_client: LLMClient) -> Optional[TriageL
     normalized = raw.strip().upper()
     if "EMERGENCY" in normalized:
         return TriageLevel.EMERGENCY
+    if "SMALL_TALK" in normalized:
+        return TriageLevel.SMALL_TALK
+    if "DISTRESSED" in normalized:
+        return TriageLevel.DISTRESSED
     if "ROUTINE" in normalized:
         return TriageLevel.ROUTINE
 
@@ -78,16 +95,16 @@ def run_triage(
     distressed_threshold: float = 0.6,
 ) -> TriageResult:
     """
-    Classify a question into EMERGENCY / DISTRESSED / ROUTINE.
+    Classify a question into EMERGENCY / SMALL_TALK / DISTRESSED / ROUTINE.
 
     Args:
         question: The user's raw question text.
         risk_level: Phase 3 sentiment risk score (0.0-1.0). Used only for the
             DISTRESSED/ROUTINE distinction; emergency detection is independent
-            of this score by design.
+            of this score by design. Does not override SMALL_TALK.
         llm_client: Injected LLM client; defaults to AnthropicClient().
         distressed_threshold: risk_level at or above this is treated as
-            DISTRESSED rather than ROUTINE (when not EMERGENCY).
+            DISTRESSED rather than ROUTINE (when not EMERGENCY or SMALL_TALK).
 
     Returns:
         TriageResult with the resolved level and an internal reason string.
@@ -96,17 +113,23 @@ def run_triage(
         return TriageResult(level=TriageLevel.ROUTINE, reason="empty question")
 
     client = llm_client or AnthropicClient()
-    emergency_check = _classify_with_llm(question, client)
+    classification = _classify_with_llm(question, client)
 
-    if emergency_check is None:
+    if classification is None:
         # Fail-safe rule: any classifier failure or unparseable output is
         # treated as DISTRESSED, never ROUTINE. We cannot confirm safety,
         # so we do not default to the least cautious path.
         logger.warning("Triage classification failed; defaulting to DISTRESSED")
         return TriageResult(level=TriageLevel.DISTRESSED, reason="triage_unavailable")
 
-    if emergency_check == TriageLevel.EMERGENCY:
+    if classification == TriageLevel.EMERGENCY:
         return TriageResult(level=TriageLevel.EMERGENCY, reason="emergency_content_detected")
+
+    if classification == TriageLevel.SMALL_TALK:
+        return TriageResult(level=TriageLevel.SMALL_TALK, reason="small_talk_detected")
+
+    if classification == TriageLevel.DISTRESSED:
+        return TriageResult(level=TriageLevel.DISTRESSED, reason="distressed_content_detected")
 
     if risk_level >= distressed_threshold:
         return TriageResult(level=TriageLevel.DISTRESSED, reason=f"risk_level={risk_level:.2f}")
