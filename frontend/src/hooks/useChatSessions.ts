@@ -11,7 +11,7 @@ import {
   sortSessionsByRecent,
   titleFromMessage,
 } from "../utils/chatStorage";
-import { getUserId } from "../utils/userId";
+import { useAuth } from "./useAuth";
 
 function createEmptySession(id?: string): ChatSession {
   const now = Date.now();
@@ -47,7 +47,11 @@ const ACCEPTED_EXTENSIONS = [
 ];
 
 export function useChatSessions({ userId }: UseChatSessionsOptions = {}) {
-  const effectiveUserId = useMemo(() => userId ?? getUserId(), [userId]);
+  const { user } = useAuth();
+  const effectiveUserId = useMemo(
+    () => userId ?? user?.id ?? "anonymous",
+    [userId, user?.id],
+  );
   const [initial] = useState(getInitialState);
   const [sessions, setSessions] = useState<ChatSession[]>(initial.sessions);
   const [activeSessionId, setActiveSessionId] = useState<string>(initial.activeSessionId);

@@ -9,7 +9,6 @@ from pydantic import BaseModel
 
 from src.agentic.router.orchestrator import TriageOrchestrator
 from src.api.middleware.validation import validate_question
-from src.api.middleware.rate_limit import enforce_rate_limit
 
 router = APIRouter(prefix="/query", tags=["query"])
 
@@ -40,13 +39,15 @@ class QueryResponse(BaseModel):
 @router.post("", response_model=QueryResponse)
 async def query(request: Request, body: QueryRequest) -> QueryResponse:
     """Run a question through triage, retrieval, and generation."""
-    enforce_rate_limit(request)
+    verified_user_id = getattr(request.state, "user_id", None)
+    user_id = verified_user_id or body.user_id
+
     question = validate_question(body.question)
 
     result = _orchestrator.handle(
         question=question,
         session_id=body.session_id,
-        user_id=body.user_id,
+        user_id=user_id,
         risk_level=body.risk_level,
     )
 

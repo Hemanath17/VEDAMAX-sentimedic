@@ -4,6 +4,8 @@
  * Distinct from ingestApi.ts which handles PDF/DOCX via the ETL pipeline.
  */
 
+import { getAuthHeaders } from "./getAuthHeaders";
+
 export interface UploadResponse {
   is_document: boolean;
   message: string;
@@ -29,8 +31,10 @@ export async function uploadImage(
   formData.append("file", file);
   formData.append("user_id", userId);
 
+  const headers = await getAuthHeaders();
   const response = await fetch(`${API_BASE_URL}/upload`, {
     method: "POST",
+    headers,
     body: formData,
   });
 

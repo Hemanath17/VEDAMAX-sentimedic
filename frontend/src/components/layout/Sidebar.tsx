@@ -1,4 +1,6 @@
 import type { ChatSession } from "../../types/chat";
+import { supabase } from "../../lib/supabase";
+import { useAuth } from "../../hooks/useAuth";
 
 interface SidebarProps {
   sessions: ChatSession[];
@@ -39,6 +41,12 @@ export function Sidebar({
   onDeleteChat,
   onClose,
 }: SidebarProps) {
+  const { user } = useAuth();
+
+  const handleSignOut = async () => {
+    await supabase.auth.signOut();
+  };
+
   const handleSelect = (id: string) => {
     onSelectChat(id);
     onClose?.();
@@ -104,8 +112,18 @@ export function Sidebar({
         </ul>
       </div>
 
-      <div className="border-t border-white/10 px-3 py-3">
-        <p className="text-[11px] leading-relaxed text-baymax-textMuted">
+      <div className="border-t border-white/10 p-3">
+        <div className="mb-2 truncate text-xs text-baymax-textMuted">
+          {user?.email}
+        </div>
+        <button
+          type="button"
+          onClick={handleSignOut}
+          className="w-full rounded-lg px-3 py-2 text-left text-xs text-baymax-textMuted transition hover:bg-baymax-surfaceAlt hover:text-baymax-text"
+        >
+          Sign out
+        </button>
+        <p className="mt-3 text-[11px] leading-relaxed text-baymax-textMuted">
           Educational health information — not a substitute for professional medical advice.
         </p>
       </div>

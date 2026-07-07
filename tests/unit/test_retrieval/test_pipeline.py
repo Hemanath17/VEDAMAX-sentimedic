@@ -18,7 +18,7 @@ def _hit(chunk_id: str, text: str, corpus: str, rrf: float = 1.0) -> HybridHit:
     )
 
 
-def test_no_user_docs_when_personal_query_has_no_uploads():
+def test_personal_question_with_authenticated_user_returns_no_user_docs():
     hybrid = MagicMock()
     hybrid.search.side_effect = [[], []]
 
@@ -38,6 +38,28 @@ def test_no_user_docs_when_personal_query_has_no_uploads():
     assert "No lab report" in (result.message or "")
 
 
+def test_general_question_with_authenticated_user_uses_kb_only():
+    hybrid = MagicMock()
+    hybrid.search.return_value = [
+        _hit("kb-1", "Normal fasting glucose is 70-99 mg/dL", "kb"),
+    ]
+
+    reranker = MagicMock()
+    reranker.rerank.return_value = [(0, 2.5, 0.9)]
+
+    pipeline = RetrievalPipeline(hybrid_searcher=hybrid, reranker=reranker)
+
+    result = pipeline.retrieve(
+        query="What is a normal fasting blood glucose level?",
+        user_id="user-123",
+        corpora=[Corpus.KB, Corpus.USER_DOC],
+    )
+
+    assert result.status != RetrievalStatus.NO_USER_DOCS
+    assert hybrid.search.call_count == 1
+    assert hybrid.search.call_args.kwargs["corpus"] == "kb"
+
+
 def test_with_user_id_searches_both_corpora():
     hybrid = MagicMock()
     hybrid.search.side_effect = [
@@ -51,7 +73,7 @@ def test_with_user_id_searches_both_corpora():
     pipeline = RetrievalPipeline(hybrid_searcher=hybrid, reranker=reranker)
 
     result = pipeline.retrieve(
-        query="Should I worry about a glucose of 140?",
+        query="Should I worry about my glucose of 140?",
         user_id="user-123",
         corpora=[Corpus.KB, Corpus.USER_DOC],
     )

@@ -118,6 +118,8 @@ class Settings(BaseSettings):
     JWT_SECRET_KEY: str = "your-secret-key-change-in-production"
     JWT_ALGORITHM: str = "HS256"
     JWT_EXPIRATION_HOURS: int = 24
+    SUPABASE_JWT_SECRET: str = ""
+    SUPABASE_URL: str = ""
 
 
 # Global settings instance

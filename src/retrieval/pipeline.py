@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import List, Optional, Sequence
@@ -85,6 +86,23 @@ class RetrievalPipeline:
             )
 
         requested_corpora = list(corpora or [Corpus.KB, Corpus.USER_DOC])
+
+        # Only search user_doc (and potentially return no_user_docs) when
+        # the question contains personal references. A logged-in user asking
+        # a general KB question like "what is a normal glucose level?" should
+        # get a KB answer, not a "no documents found" refusal just because
+        # they happen to be authenticated and have no uploaded reports yet.
+        _PERSONAL_REFS = re.compile(
+            r"\b(my|mine|i have|i've|i am|i'm|our|we have)\b",
+            re.IGNORECASE,
+        )
+        query_needs_personal_data = bool(_PERSONAL_REFS.search(query))
+
+        if not query_needs_personal_data and user_id:
+            requested_corpora = [
+                c for c in requested_corpora if c != Corpus.USER_DOC
+            ]
+
         resolved_corpora = self._resolve_corpora(query, requested_corpora, user_id)
 
         user_doc_requested = Corpus.USER_DOC in requested_corpora

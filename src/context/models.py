@@ -2,7 +2,7 @@
 
 from datetime import datetime
 from typing import Dict, Any, List, Optional
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 from enum import Enum
 
 
@@ -25,8 +25,8 @@ class UserProfile(BaseModel):
     created_at: datetime = Field(default_factory=datetime.now)
     updated_at: datetime = Field(default_factory=datetime.now)
 
-    class Config:
-        json_schema_extra = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "user_id": "a1b2c3d4e5f6...",
                 "age_range": "26-35",
@@ -38,6 +38,7 @@ class UserProfile(BaseModel):
                 }
             }
         }
+    )
 
 
 class ConversationMessage(BaseModel):

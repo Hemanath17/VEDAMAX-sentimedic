@@ -6,10 +6,9 @@ import tempfile
 from pathlib import Path
 from typing import Optional
 
-from fastapi import APIRouter, File, Form, HTTPException, Request, UploadFile
+from fastapi import APIRouter, File, Form, HTTPException, UploadFile
 from pydantic import BaseModel
 
-from src.api.middleware.rate_limit import enforce_rate_limit
 from src.config.logging_config import get_logger
 from src.ingestion.etl_pipeline import ETLPipeline
 from src.ingestion.parsers.parser_factory import get_parser_factory
@@ -43,12 +42,10 @@ def _validate_user_id(user_id: Optional[str]) -> str:
 
 @router.post("", response_model=IngestResponse)
 async def ingest_document(
-    request: Request,
     file: UploadFile = File(...),
     user_id: str = Form(...),
 ) -> IngestResponse:
     """Upload a medical document, run ETL, and index chunks for this user."""
-    enforce_rate_limit(request)
     normalized_user_id = _validate_user_id(user_id)
 
     if not file.filename:

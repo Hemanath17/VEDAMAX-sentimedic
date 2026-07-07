@@ -1,3 +1,5 @@
+import { getAuthHeaders } from "./getAuthHeaders";
+
 export interface IngestResponse {
   document_id: string;
   filename: string;
@@ -24,8 +26,10 @@ export async function uploadDocument(
   formData.append("file", file);
   formData.append("user_id", userId);
 
+  const headers = await getAuthHeaders();
   const response = await fetch(`${API_BASE_URL}/ingest`, {
     method: "POST",
+    headers,
     body: formData,
   });
 

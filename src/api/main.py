@@ -7,19 +7,14 @@ from openinference.instrumentation.anthropic import AnthropicInstrumentor
 
 from src.config.settings import settings
 from src.config.logging_config import setup_logging, get_logger
+from src.api.middleware.rate_limit import RateLimitMiddleware
+from src.api.middleware.auth_middleware import SupabaseAuthMiddleware
 from src.api.routes import health, ingest, query, upload
 
-# Setup logging
 setup_logging()
 logger = get_logger(__name__)
 
-# ---------------------------------------------------------------------------
-# Phoenix tracing setup
-# Registers an OpenTelemetry tracer that exports spans to the Phoenix
-# instance running at localhost:6006. Every Anthropic API call is
-# automatically instrumented -- you'll see triage, generation, and
-# small-talk LLM calls as individual spans in the Phoenix UI.
-# ---------------------------------------------------------------------------
+# Phoenix tracing
 try:
     tracer_provider = register(
         project_name="vedamax-sentimedic",
@@ -28,9 +23,8 @@ try:
     AnthropicInstrumentor().instrument(tracer_provider=tracer_provider)
     logger.info("Phoenix tracing enabled at http://localhost:6006")
 except Exception as exc:
-    logger.warning(f"Phoenix tracing could not be enabled: {exc} -- continuing without tracing")
+    logger.warning(f"Phoenix tracing could not be enabled: {exc}")
 
-# Create FastAPI app
 app = FastAPI(
     title=settings.APP_NAME,
     version=settings.APP_VERSION,
@@ -38,7 +32,16 @@ app = FastAPI(
     debug=settings.DEBUG,
 )
 
-# CORS middleware
+# Rate limiting must be added BEFORE CORSMiddleware
+# (Starlette applies middleware in reverse order of registration)
+app.add_middleware(RateLimitMiddleware)
+
+app.add_middleware(
+    SupabaseAuthMiddleware,
+    jwt_secret=settings.SUPABASE_JWT_SECRET,
+    supabase_url=settings.SUPABASE_URL,
+)
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -47,7 +50,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Include routers
 app.include_router(health.router)
 app.include_router(query.router)
 app.include_router(upload.router)
@@ -56,7 +58,6 @@ app.include_router(ingest.router)
 
 @app.get("/")
 async def root():
-    """Root endpoint."""
     return {
         "message": "Welcome to SentiMedical-RAG API",
         "version": settings.APP_VERSION,
